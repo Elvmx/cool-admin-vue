@@ -25,9 +25,9 @@
 								<div class="det">
 									<div class="tag">
 										<el-tag size="small" effect="dark">{{ item.name }}</el-tag>
-										<el-tag size="small" effect="dark" type="success"
-											>v{{ item.version || '1.0.0' }}</el-tag
-										>
+										<el-tag size="small" effect="dark" type="success">
+											v{{ item.version || '1.0.0' }}
+										</el-tag>
 									</div>
 
 									<p class="title">
@@ -51,8 +51,9 @@
 									v-if="item.demo && !isEmpty(item.demo)"
 									round
 									@click="det.open(item)"
-									>示例</el-button
 								>
+									示例
+								</el-button>
 							</div>
 						</div>
 					</el-col>

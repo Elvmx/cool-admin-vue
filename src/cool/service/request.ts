@@ -39,12 +39,12 @@ request.interceptors.request.use(
 		}
 
 		// 请求信息
-		if (isDev) {
-			console.group(req.url);
-			console.log('method:', req.method);
-			console.table('data:', req.method == 'get' ? req.params : req.data);
-			console.groupEnd();
-		}
+		// if (isDev) {
+		// 	console.group(req.url);
+		// 	console.log('method:', req.method);
+		// 	console.table('data:', req.method == 'get' ? req.params : req.data);
+		// 	console.groupEnd();
+		// }
 
 		// 验证 token
 		if (user.token) {
