@@ -1,9 +1,12 @@
 import { defineStore } from 'pinia';
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { merge } from 'lodash-es';
 import { useBrowser } from '/@/cool';
 import { storage } from '/@/cool/utils';
 import { config } from '/@/config';
+
+// 本地缓存
+const data = storage.info();
 
 export const useAppStore = defineStore('app', function () {
 	const { browser, onScreenChange } = useBrowser();
@@ -14,7 +17,7 @@ export const useAppStore = defineStore('app', function () {
 	});
 
 	// 是否折叠
-	const isFold = ref(false);
+	const isFold = ref(data.isFold || false);
 
 	// 事件
 	const events = reactive<{ [key: string]: any[] }>({
@@ -28,6 +31,7 @@ export const useAppStore = defineStore('app', function () {
 		}
 
 		isFold.value = v;
+		storage.set('isFold', v);
 	}
 
 	// 设置基本信息
@@ -45,6 +49,7 @@ export const useAppStore = defineStore('app', function () {
 
 	// 监听屏幕变化
 	onScreenChange(() => {
+		if (data.isFold) return;
 		isFold.value = browser.isMini;
 	});
 
