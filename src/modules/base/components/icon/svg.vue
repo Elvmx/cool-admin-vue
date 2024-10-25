@@ -20,7 +20,8 @@ export default defineComponent({
 
 	setup(props) {
 		const style = reactive({
-			fontSize: parsePx(props.size!)
+			fontSize: parsePx(props.size!),
+			fill: props.color
 		});
 
 		const iconName = computed(() => `#icon-${props.name}`);

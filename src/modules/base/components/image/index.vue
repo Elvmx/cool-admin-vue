@@ -6,7 +6,7 @@
 		}"
 	>
 		<el-image
-			:src="urls[0]"
+			:src="url"
 			:fit="fit"
 			:lazy="lazy"
 			:preview-src-list="urls"
@@ -49,7 +49,8 @@ export default defineComponent({
 		fit: {
 			type: String as PropType<'' | 'contain' | 'cover' | 'none' | 'fill' | 'scale-down'>,
 			default: 'cover'
-		}
+		},
+		compress: String as PropType<'oss' | 'none'>
 	},
 
 	setup(props) {
@@ -76,7 +77,20 @@ export default defineComponent({
 			};
 		});
 
+		const url = computed(() => {
+			const v = urls.value[0];
+
+			if (props.compress == 'oss') {
+				return (
+					v + `?x-oss-process=image/resize,m_fill,h_${style.value.h},w_${style.value.w}`
+				);
+			}
+
+			return v;
+		});
+
 		return {
+			url,
 			urls,
 			style
 		};

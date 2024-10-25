@@ -168,7 +168,7 @@
 				</div>
 
 				<div class="btns">
-					<el-button class="btn-primary" @click="code.create()">
+					<el-button class="btn-primary" @click="code.create(true)">
 						生成代码
 						<cl-svg name="code" />
 					</el-button>
@@ -204,11 +204,17 @@
 									}
 								"
 							>
-								{{ item.label }}
+								<span>{{ item.label }}</span>
+								<el-switch
+									class="lock"
+									size="small"
+									v-model="code.lock[item.value]"
+									v-if="item.value != 'vue' && !code.loading"
+								/>
 							</div>
 
 							<div v-if="!isEmpty(code.list) && !code.loading" class="op">
-								<el-tooltip v-if="code.active == 'vue'" content="重新生成">
+								<el-tooltip content="重新生成">
 									<el-icon @click="code.refresh()">
 										<refresh />
 									</el-icon>
@@ -287,7 +293,7 @@ import {
 	QuestionFilled,
 	Refresh
 } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { assign, isEmpty } from 'lodash-es';
 import { useMenu, useAi } from '../hooks';
 import { config, isDev } from '/@/config';
@@ -398,6 +404,9 @@ const code = reactive({
 	// 代码列表
 	list: [] as CodeItem[],
 
+	// 代码锁
+	lock: {} as { [key: string]: boolean },
+
 	// 其他数据
 	data: {
 		router: '',
@@ -460,7 +469,6 @@ const code = reactive({
 	clear() {
 		code.list = [];
 		code.logs = [];
-		code.req = null;
 		code.loading = false;
 	},
 
@@ -482,12 +490,10 @@ const code = reactive({
 
 	// 生成 Node
 	async createNode() {
-		code.tips('Entity 代码生成中');
-
 		// entity 代码
 		const entity = await code.setContent('Entity 实体', 'node-entity');
 
-		code.tips('Entity 生成成功，开始解析');
+		code.tips('Entity 开始解析');
 
 		// entity 关键数据
 		const entityData = await ai.invokeFlow('comm-parse-entity', {
@@ -504,15 +510,13 @@ const code = reactive({
 		// 解析字段
 		code.parseColumn();
 
-		code.tips('Service 代码生成中');
-
 		// service 代码
 		const service = await code.setContent('Service 服务', 'node-service', {
 			...entityData,
 			entity
 		});
 
-		code.tips('Service 生成成功，开始解析');
+		code.tips('Service 开始解析');
 
 		// service 关键数据
 		const serviceData = await ai.invokeFlow('comm-parse-service', {
@@ -520,8 +524,6 @@ const code = reactive({
 		});
 
 		code.tips(`Service 解析成功，${JSON.stringify(serviceData)}`);
-
-		code.tips('Controller 代码生成中');
 
 		// controller 代码
 		const controller = await code.setContent('Controller 控制器', 'node-controller', {
@@ -531,7 +533,7 @@ const code = reactive({
 			entity
 		});
 
-		code.tips('Controller 生成成功，开始解析');
+		code.tips('Controller 开始解析');
 
 		// controller 关键数据
 		const controllerData = await ai.invokeFlow('comm-parse-controller', {
@@ -547,12 +549,10 @@ const code = reactive({
 
 	// 生成 Java
 	async createJava() {
-		code.tips('Entity 代码生成中');
-
 		// entity 代码
 		const entity = await code.setContent('Entity 实体', 'java-entity');
 
-		code.tips('Entity 生成成功，开始解析');
+		code.tips('Entity 开始解析');
 
 		// entity 关键数据
 		const entityData = await ai.invokeFlow('comm-parse-entity', {
@@ -569,51 +569,41 @@ const code = reactive({
 		// 解析字段
 		code.parseColumn();
 
-		code.tips('Mapper 代码生成中');
-
 		// mapper 代码
 		await code.setContent('Mapper 映射', 'java-mapper', {
 			...entityData,
 			entity
 		});
 
-		code.tips('Mapper 生成成功');
-
-		code.tips('Service 代码生成中');
-
 		// service 接口类
-		const _service = await code.setContent('Service 接口类', 'java-service', {
+		const serviceInterface = await code.setContent('Service 接口类', 'java-service', {
 			...entityData,
 			entity
 		});
 
 		// service 实现类
-		const service = await code.setContent('Service 实现类', 'java-service-impl', {
+		const serviceImpl = await code.setContent('Service 实现类', 'java-service-impl', {
 			...entityData,
 			entity,
-			service: _service
+			service: serviceInterface
 		});
-
-		code.tips('Service 生成成功，开始解析');
 
 		// service 关键数据
 		const serviceData = await ai.invokeFlow('comm-parse-service', {
-			service
+			service: serviceImpl
 		});
 
 		code.tips(`Service 解析成功，${JSON.stringify(serviceData)}`);
-
-		code.tips('Controller 代码生成中');
 
 		// controller 代码
 		const controller = await code.setContent('Controller 控制器', 'java-controller', {
 			...serviceData,
 			...entityData,
-			service,
+			service: serviceImpl,
 			entity
 		});
 
-		code.tips('Controller 生成成功，开始解析');
+		code.tips('Controller 开始解析');
 
 		// controller 关键数据
 		const controllerData = await ai.invokeFlow('comm-parse-controller', {
@@ -627,7 +617,7 @@ const code = reactive({
 	},
 
 	// 生成代码
-	async create() {
+	async create(isNew?: boolean) {
 		if (!form.entity) {
 			return ElMessage.warning('请填写实体名称');
 		}
@@ -640,19 +630,21 @@ const code = reactive({
 			return ElMessage.warning('请填写字段');
 		}
 
+		if (isNew) {
+			// 清空
+			code.clear();
+
+			// 下一步
+			step.next();
+		}
+
 		code.loading = true;
-
-		// 清空
-		code.clear();
-
-		// 下一步
-		step.next();
+		code.req = null;
 
 		code.tips('AI 开始编码');
 
 		await sleep(300);
 
-		// @ts-ignore
 		await code[`create${lang.value}`]();
 
 		await code.createVue();
@@ -779,15 +771,23 @@ const code = reactive({
 	},
 
 	// 设置内容
-	async setContent(label: string, flow: string, data?: any) {
+	async setContent(label: string, flow: string, data?: any): Promise<string> {
 		return new Promise(resolve => {
 			const item = code.add(label, flow);
+
+			// 锁住不生成
+			if (code.lock[flow]) {
+				resolve(item.content);
+				return;
+			}
 
 			// 是否结束
 			let isEnd = false;
 
 			// 所有内容
 			let content = '';
+
+			code.tips(`${label}生成中`);
 
 			ai.invokeFlow(flow, { ...form, ...data }, res => {
 				isEnd = res.isEnd;
@@ -815,7 +815,8 @@ const code = reactive({
 					if (!v) {
 						clearInterval(timer);
 						resolve(item.content);
-						return false;
+						code.tips(`${label}生成成功`);
+						return;
 					}
 				}
 
@@ -841,11 +842,16 @@ const code = reactive({
 	},
 
 	// 重新生成
-	async refresh() {
-		code.loading = true;
-		code.req = null;
-		await code.createVue();
-		code.loading = false;
+	refresh() {
+		// 清空没有锁的代码
+		code.list.forEach(e => {
+			if (!code.lock[e.value]) {
+				e.content = '';
+			}
+		});
+
+		// 重新创建
+		code.create();
 	}
 });
 
@@ -1095,6 +1101,13 @@ onMounted(() => {
 			assign(form, storage.get('ai-code.form'));
 		}
 	}
+
+	// 新功能提示
+	ElNotification({
+		title: '新功能提示',
+		message: '支持自定义修改内容，开启后跳过生成',
+		duration: 5000
+	});
 });
 </script>
 
@@ -1556,8 +1569,17 @@ $color: #41d1ff;
 						cursor: pointer;
 						color: var(--el-color-info);
 
+						& > span {
+							line-height: 1;
+							user-select: none;
+						}
+
+						.lock {
+							margin-left: 10px;
+						}
+
 						&.active {
-							background-color: #0f151e;
+							background-color: #1d1f24;
 							color: #fff;
 						}
 
@@ -1581,7 +1603,7 @@ $color: #41d1ff;
 							border-radius: 5px;
 
 							&:hover {
-								background-color: #0f151e;
+								background-color: #1d1f24;
 							}
 						}
 					}

@@ -12,7 +12,7 @@
 		"format": "prettier --write src/"
 	},
 	"dependencies": {
-		"@cool-vue/crud": "^7.2.2",
+		"@cool-vue/crud": "^7.2.3",
 		"@element-plus/icons-vue": "^2.3.1",
 		"@vueuse/core": "^11.1.0",
 		"@wangeditor/editor": "^5.1.23",
