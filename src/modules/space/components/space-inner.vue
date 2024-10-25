@@ -13,6 +13,7 @@
 								menu="space"
 								type="file"
 								multiple
+								:prefix-path="ViewGroup?.selected?.name"
 								:show-file-list="false"
 								:limit="9999"
 								:accept="accept"
@@ -127,19 +128,26 @@ const { ViewGroup } = useViewGroup({
 				controls: ['close']
 			},
 			items: [
-				{
+				() => ({
 					label: '名称',
 					prop: 'name',
-					value: '',
+					// value: '',
 					required: true,
+					// rules: [
+					// 	// { pattern: /[^\u4e00-\u9fa5]/, message: '不允许有' }
+					// 	{ pattern: /1\d{10}/, message: '请输入正确的手机号', trigger: 'blur' }
+					// ],
 					component: {
-						name: 'el-input',
-						props: {
-							maxlength: 20,
-							clearable: true
+						name: 'el-input'
+					},
+					rules: [
+						{
+							min: 6,
+							max: 16,
+							message: '密码长度在 6 到 16 个字符'
 						}
-					}
-				}
+					]
+				})
 			]
 		};
 	},

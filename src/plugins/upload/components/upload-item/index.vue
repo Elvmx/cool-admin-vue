@@ -148,7 +148,7 @@ const props = defineProps({
 const emit = defineEmits(['remove']);
 
 const { refs, setRefs } = useCool();
-const { copy } = useClipboard();
+const { copy } = useClipboard({ legacy: true });
 
 // 图片地址
 const url = computed(() => props.item.url || '');

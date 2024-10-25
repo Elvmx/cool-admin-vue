@@ -74,3 +74,8 @@ export function pathJoin(...parts: string[]): string {
 		return normalizedParts.join('/');
 	}
 }
+
+// 使用正则表达式匹配所有空格，并替换为指定的分隔符
+export function replaceSpacesWithSeparator(str: string, separator = '-') {
+	return str.replace(/\s+/g, separator);
+}

@@ -117,6 +117,7 @@ request.interceptors.response.use(
 		}
 
 		switch (code) {
+			case 200:
 			case 1000:
 				return data;
 			default:

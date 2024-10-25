@@ -1,7 +1,7 @@
 import { ElMessage } from 'element-plus';
 import { module, service } from '/@/cool';
 import { uuid } from '/@/cool/utils';
-import { pathJoin } from '../utils';
+import { pathJoin, replaceSpacesWithSeparator } from '../utils';
 import { useBase } from '/$/base';
 import { type AxiosProgressEvent } from 'axios';
 import type { Upload } from '../types';
@@ -22,17 +22,24 @@ export function useUpload() {
 				const fileId = uuid('');
 
 				try {
-					// 上传模式、类型
-					const { mode, type } = await service.base.comm.uploadMode();
-
-					// 本地上传
-					const isLocal = mode == 'local';
+					const resp = await service.request({
+						url: import.meta.env.VITE_OSS_CONFIG_URL,
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded'
+						},
+						data: {
+							systemName: import.meta.env.VITE_OSS_SYSTEM_NAME,
+							modelDir: prefixPath ?? import.meta.env.VITE_OSS_MODEL_DIR,
+							isSSL: import.meta.env.VITE_OSS_IS_SSL
+						}
+					});
 
 					// 文件名
-					const fileName = fileId + '_' + file.name;
+					const fileName = fileId + '_' + replaceSpacesWithSeparator(file.name);
 
 					// Key
-					let key = isLocal ? fileName : pathJoin(prefixPath!, fileName);
+					const key = pathJoin(resp.dir, fileName);
 
 					// 多种上传请求
 					const next = async ({ host, preview, data }: Upload.Request) => {
@@ -60,8 +67,8 @@ export function useUpload() {
 								url: host,
 								method: 'POST',
 								headers: {
-									'Content-Type': 'multipart/form-data',
-									Authorization: isLocal ? user.token : null
+									'Content-Type': 'multipart/form-data'
+									// Authorization: isLocal ? user.token : null
 								},
 								timeout: 600000,
 								data: fd,
@@ -69,7 +76,6 @@ export function useUpload() {
 									progress = e.total ? Math.floor((e.loaded / e.total) * 100) : 0;
 									onProgress?.(progress);
 								},
-								proxy: isLocal,
 								NProgress: false
 							})
 							.then(res => {
@@ -77,15 +83,9 @@ export function useUpload() {
 									onProgress?.(100);
 								}
 
-								key = encodeURIComponent(key);
+								// key = encodeURIComponent(key);
 
-								let url = '';
-
-								if (isLocal) {
-									url = res;
-								} else {
-									url = pathJoin(preview || host, key);
-								}
+								const url = pathJoin(preview || host, key);
 
 								resolve({
 									key,
@@ -99,61 +99,16 @@ export function useUpload() {
 							});
 					};
 
-					if (isLocal) {
-						next({
-							host: '/admin/base/comm/upload'
-						});
-					} else {
-						service.base.comm
-							.upload(
-								type == 'aws'
-									? {
-											key
-										}
-									: {}
-							)
-							.then(res => {
-								switch (type) {
-									// 腾讯
-									case 'cos':
-										next({
-											host: res.url,
-											data: res.credentials
-										});
-										break;
-									// 阿里
-									case 'oss':
-										next({
-											host: res.host,
-											preview: res.publicDomain,
-											data: {
-												OSSAccessKeyId: res.OSSAccessKeyId,
-												policy: res.policy,
-												signature: res.signature
-											}
-										});
-										break;
-									// 七牛
-									case 'qiniu':
-										next({
-											host: res.uploadUrl,
-											preview: res.publicDomain,
-											data: {
-												token: res.token
-											}
-										});
-										break;
-									// aws
-									case 'aws':
-										next({
-											host: res.url,
-											data: res.fields
-										});
-										break;
-								}
-							})
-							.catch(reject);
-					}
+					next({
+						host: resp.url,
+						preview: resp.host,
+						data: {
+							OSSAccessKeyId: resp.accessid,
+							policy: resp.policy,
+							signature: resp.signature,
+							success_action_status: '201'
+						}
+					});
 				} catch (err) {
 					ElMessage.error('文件上传失败');
 					console.error('[upload]', err);
